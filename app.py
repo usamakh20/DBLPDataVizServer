@@ -4,23 +4,21 @@ import mysql.connector
 app = Flask(__name__)
 
 dblp = mysql.connector.connect(
-    host="localhost",
+    host="35.200.192.225",
     user="root",
-    passwd='12345678',
     database="dblp"
 )
 
 FoR = mysql.connector.connect(
-    host="localhost",
+    host="35.200.192.225",
     user="root",
-    passwd='12345678',
     database="FoR"
 )
 
 pageLimit = 100
 
-FoRCursor = FoR.cursor(buffered=True,dictionary=True)
-dblpCursor = dblp.cursor(buffered=True,dictionary=True)
+FoRCursor = FoR.cursor(buffered=True, dictionary=True)
+dblpCursor = dblp.cursor(buffered=True, dictionary=True)
 
 searchPublications = "SELECT * FROM dblp.publication LIMIT %s,%s"
 
@@ -32,41 +30,47 @@ searchAuthorsById = "SELECT * FROM dblp.authors where id = %s"
 
 searchCite = "SELECT Count(*) as citations FROM dblp.cite WHERE publ_id = %s"
 
-searchAuthorsPublications = "SELECT publication.id,`key`,title,`year` " \
+searchJournalFoR = "SELECT * FROM `FoR`.journal where title like %s order by length(title)"
+
+searchPublicationsAuthors = "SELECT dblp.authors.id,dblp.authors.name " \
                             "FROM dblp.publication,dblp.authors,dblp.authors_publications " \
-                            "WHERE dblp.authors.id = %s and dblp.authors.id = authors_publications.author_id and " \
-                            "publication.id = authors_publications.publ_id; "
+                            "where publication.id = %s and publication.id = authors_publications.publ_id and " \
+                            "authors_publications.author_id = authors.id "
+
+searchAuthorsPublications = "SELECT publication.id,`key`,title,`year` " \
+                            "FROM dblp.publication,dblp.authors_publications " \
+                            "WHERE authors_publications.author_id = %s and publication.id = " \
+                            "authors_publications.publ_id "
 
 searchAuthorsJournals = "SELECT journal.id,dblp.journal.name,Count(*) as `No of publications` " \
                         "FROM dblp.authors_publications,dblp.publication,journal " \
-                        "where authors_publications.author_id = %s and authors_publications.publ_id = publication.id and " \
-                        "publication.journal_id = journal.id " \
+                        "where authors_publications.author_id = %s and authors_publications.publ_id = publication.id " \
+                        "and publication.journal_id = journal.id " \
                         "group by journal.id"
 
 searchAuthorsConferences = "SELECT dblp.publication.key,dblp.publication.crossref " \
                            "FROM dblp.authors_publications,dblp.publication " \
-                           "where authors_publications.author_id = %s and authors_publications.publ_id = publication.id and " \
-                           "publication.key like 'conf/%' "
+                           "where authors_publications.author_id = %s and authors_publications.publ_id = " \
+                           "publication.id and publication.key like 'conf/%' "
 
 
 @app.route('/')
 def welcome():
     return 'Welcome To DBLP Visualization'
 
-@app.route('/journals/<author_id>')
-def get_journals(author_id):
+
+@app.route('/FoR/<author_id>')
+def get_author_for(author_id):
     dblpCursor.execute(searchAuthorsJournals, (author_id,))
-    result = []
-    for (id, name, publications) in dblpCursor:
-        result.append({
-            "id": id,
-            "name": name,
-            "No. Of Publications": publications
-        })
-    return Response(json.dumps(result), mimetype='application/json')
+    journals = dblpCursor.fetchall()
+
+    dblpCursor.execute(searchAuthorsConferences, (author_id,))
+    conferences = dblpCursor.fetchall()
+
+    return Response(json.dumps(journals), mimetype='application/json')
 
 
-@app.route('/author')
+@app.route('/authors')
 def get_authors():
     page = request.args.get('page', default=0, type=int)
     offset = pageLimit * page
@@ -77,29 +81,46 @@ def get_authors():
     return Response(json.dumps(result), mimetype='application/json')
 
 
-@app.route('/for')
-def get_FoRs():
+@app.route('/author/<int:author_id>/publications')
+def get_author_publications(author_id):
+    dblpCursor.execute(searchAuthorsPublications, (author_id,))
+    result = dblpCursor.fetchall()
+
+    return Response(json.dumps(result), mimetype='application/json')
+
+
+@app.route('/FoRs')
+def get_for():
     dblpCursor.execute(searchFoRs)
     result = dblpCursor.fetchall()
     return Response(json.dumps(result), mimetype='application/json')
 
 
-@app.route('/publication')
+@app.route('/publications')
 def get_publications():
     page = request.args.get('page', default=0, type=int)
     offset = pageLimit * page
 
-    dblpCursor.execute(searchPublications,(offset, pageLimit))
+    dblpCursor.execute(searchPublications, (offset, pageLimit))
     result = dblpCursor.fetchall()
 
     return Response(json.dumps(result), mimetype='application/json')
 
-# @app.route('/publication/cite')
-# def get_cite():
-#     dblpCursor.execute(searchPublications,(offset, pageLimit))
-#     result = dblpCursor.fetchall()
-#
-#     return Response(json.dumps(result), mimetype='application/json')
+
+@app.route('/publication/<int:publ_id>/authors')
+def get_publication_authors(publ_id):
+    dblpCursor.execute(searchPublicationsAuthors, (publ_id,))
+    result = dblpCursor.fetchall()
+
+    return Response(json.dumps(result), mimetype='application/json')
+
+
+@app.route('/cite/<int:publ_id>')
+def get_cite(publ_id):
+    dblpCursor.execute(searchCite, (publ_id,))
+    result = dblpCursor.fetchall()
+
+    return Response(json.dumps(result), mimetype='application/json')
 
 
 if __name__ == '__main__':
