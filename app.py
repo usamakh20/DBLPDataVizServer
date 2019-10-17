@@ -124,7 +124,7 @@ def get_cite(publ_id):
 
 
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True)
     dblpCursor.close()
     FoRCursor.close()
     dblp.close()
