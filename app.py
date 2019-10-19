@@ -1,4 +1,5 @@
 from flask import Flask, json, Response, request
+from collections import Counter
 import mysql.connector
 
 app = Flask(__name__)
@@ -24,6 +25,8 @@ searchPublications = "SELECT * FROM dblp.publication LIMIT %s,%s"
 
 searchFoRs = "SELECT * FROM `FoR`.`FoR`"
 
+searchFoRsById = "SELECT * FROM `FoR`.`FoR` where id in (%s)"
+
 searchAuthors = "SELECT id,name FROM dblp.authors ORDER BY id LIMIT %s,%s"
 
 searchAuthorsById = "SELECT * FROM dblp.authors where id = %s"
@@ -31,6 +34,8 @@ searchAuthorsById = "SELECT * FROM dblp.authors where id = %s"
 searchCite = "SELECT Count(*) as citations FROM dblp.cite WHERE publ_id = %s"
 
 searchJournalFoR = "SELECT * FROM `FoR`.journal where title like %s order by length(title)"
+
+searchConferenceFoR = "SELECT * FROM `FoR`.conference where acronym in (%s)"
 
 searchPublicationsAuthors = "SELECT dblp.authors.id,dblp.authors.name " \
                             "FROM dblp.publication,dblp.authors,dblp.authors_publications " \
@@ -42,7 +47,7 @@ searchAuthorsPublications = "SELECT publication.id,`key`,title,`year` " \
                             "WHERE authors_publications.author_id = %s and publication.id = " \
                             "authors_publications.publ_id "
 
-searchAuthorsJournals = "SELECT journal.id,dblp.journal.name,Count(*) as `No of publications` " \
+searchAuthorsJournals = "SELECT journal.id,dblp.journal.name,Count(*) as `No. of publications` " \
                         "FROM dblp.authors_publications,dblp.publication,journal " \
                         "where authors_publications.author_id = %s and authors_publications.publ_id = publication.id " \
                         "and publication.journal_id = journal.id " \
@@ -61,13 +66,34 @@ def welcome():
 
 @app.route('/FoR/<author_id>')
 def get_author_for(author_id):
+    total_FoRs = Counter()
+
     dblpCursor.execute(searchAuthorsJournals, (author_id,))
     journals = dblpCursor.fetchall()
 
     dblpCursor.execute(searchAuthorsConferences, (author_id,))
     conferences = dblpCursor.fetchall()
 
-    return Response(json.dumps(journals), mimetype='application/json')
+    for row in journals:
+        FoRCursor.execute(searchJournalFoR, ('%'.join(row['name'].replace('.', '').split()) + '%',))
+        if FoRCursor.rowcount > 0:
+            result = FoRCursor.fetchone()
+            total_FoRs[result['FoR']] += row['No. of publications']
+
+    acronyms_count = Counter([conf['key'].split('/')[1] for conf in conferences])
+    acronyms_string = '\'' + '\',\''.join(list(acronyms_count)) + '\''
+    FoRCursor.execute(searchConferenceFoR.replace('%s', acronyms_string))
+
+    for row in FoRCursor:
+        total_FoRs[row['FoR']] += acronyms_count[row['acronym'].lower()]
+
+    FoRs_string = '\'' + '\',\''.join(list(map(str, total_FoRs))) + '\''
+    FoRCursor.execute(searchFoRsById.replace('%s', FoRs_string))
+    result = {}
+    for row in FoRCursor:
+        result[row['name']] = total_FoRs[row['id']]
+
+    return Response(json.dumps(result), mimetype='application/json')
 
 
 @app.route('/authors')
@@ -91,7 +117,7 @@ def get_author_publications(author_id):
 
 @app.route('/FoRs')
 def get_for():
-    dblpCursor.execute(searchFoRs)
+    FoRCursor.execute(searchFoRs)
     result = dblpCursor.fetchall()
     return Response(json.dumps(result), mimetype='application/json')
 
@@ -115,7 +141,7 @@ def get_publication_authors(publ_id):
     return Response(json.dumps(result), mimetype='application/json')
 
 
-@app.route('/cite/<int:publ_id>')
+@app.route('/publication/<int:publ_id>/cite')
 def get_cite(publ_id):
     dblpCursor.execute(searchCite, (publ_id,))
     result = dblpCursor.fetchall()
