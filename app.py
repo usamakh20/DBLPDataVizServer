@@ -118,7 +118,7 @@ def get_author_publications(author_id):
 @app.route('/FoRs')
 def get_for():
     FoRCursor.execute(searchFoRs)
-    result = dblpCursor.fetchall()
+    result = FoRCursor.fetchall()
     return Response(json.dumps(result), mimetype='application/json')
 
 
