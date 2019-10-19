@@ -46,7 +46,7 @@ searchPublicationsAuthors = "SELECT dblp.authors.id,dblp.authors.name " \
                             "where publication.id = %s and publication.id = authors_publications.publ_id and " \
                             "authors_publications.author_id = authors.id "
 
-searchAuthorsPublications = "SELECT publication.id,`key`,title,`year` " \
+searchAuthorsPublications = "SELECT publication.id,`key`,title,`year`,type " \
                             "FROM dblp.publication,dblp.authors_publications " \
                             "WHERE authors_publications.author_id = %s and publication.id = " \
                             "authors_publications.publ_id "
