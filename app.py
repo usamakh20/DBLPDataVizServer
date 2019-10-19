@@ -31,6 +31,10 @@ searchAuthors = "SELECT id,name FROM dblp.authors ORDER BY id LIMIT %s,%s"
 
 searchAuthorsById = "SELECT * FROM dblp.authors where id = %s"
 
+searchAuthorByName = "SELECT id,name FROM dblp.authors WHERE `name` LIKE %s LIMIT %s,%s"
+
+searchCountAuthorByName = "SELECT count(*) as count FROM dblp.authors WHERE `name` LIKE %s"
+
 searchCite = "SELECT Count(*) as citations FROM dblp.cite WHERE publ_id = %s"
 
 searchJournalFoR = "SELECT * FROM `FoR`.journal where title like %s order by length(title)"
@@ -107,9 +111,20 @@ def get_authors():
     return Response(json.dumps(result), mimetype='application/json')
 
 
-@app.route('/author/<int:author_id>/publications')
-def get_author_publications(author_id):
-    dblpCursor.execute(searchAuthorsPublications, (author_id,))
+@app.route('/search/author/<string:author_name>')
+def search_author(author_name):
+    page = request.args.get('page', default=0, type=int)
+    offset = pageLimit * page
+
+    dblpCursor.execute(searchAuthorByName, (author_name + '%', offset, pageLimit))
+    result = dblpCursor.fetchall()
+
+    return Response(json.dumps(result), mimetype='application/json')
+
+
+@app.route('/search/author/<string:author_name>/count')
+def get_search_author_count(author_name):
+    dblpCursor.execute(searchCountAuthorByName, (author_name + '%',))
     result = dblpCursor.fetchall()
 
     return Response(json.dumps(result), mimetype='application/json')
@@ -144,6 +159,14 @@ def get_publication_authors(publ_id):
 @app.route('/publication/<int:publ_id>/cite')
 def get_cite(publ_id):
     dblpCursor.execute(searchCite, (publ_id,))
+    result = dblpCursor.fetchall()
+
+    return Response(json.dumps(result), mimetype='application/json')
+
+
+@app.route('/author/<int:author_id>/publications')
+def get_author_publications(author_id):
+    dblpCursor.execute(searchAuthorsPublications, (author_id,))
     result = dblpCursor.fetchall()
 
     return Response(json.dumps(result), mimetype='application/json')
