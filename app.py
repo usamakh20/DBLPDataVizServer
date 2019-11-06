@@ -4,22 +4,16 @@ import mysql.connector
 
 app = Flask(__name__)
 
-dblp = mysql.connector.connect(
-    host="35.200.192.225",
-    user="root",
-    database="dblp"
-)
 
-FoR = mysql.connector.connect(
-    host="35.200.192.225",
-    user="root",
-    database="FoR"
+db_con = mysql.connector.connect(
+    host='34.93.138.139',
+    user='root',
+    passwd = '4Jm519N0IgsEvJ2O'
 )
 
 pageLimit = 100
 
-FoRCursor = FoR.cursor(buffered=True, dictionary=True)
-dblpCursor = dblp.cursor(buffered=True, dictionary=True)
+dbCursor = db_con.cursor(buffered=True, dictionary=True)
 
 searchPublications = "SELECT * FROM dblp.publication LIMIT %s,%s"
 
@@ -52,7 +46,7 @@ searchAuthorsPublications = "SELECT publication.id,`key`,title,`year`,type " \
                             "authors_publications.publ_id "
 
 searchAuthorsJournals = "SELECT journal.id,dblp.journal.name,Count(*) as `No. of publications` " \
-                        "FROM dblp.authors_publications,dblp.publication,journal " \
+                        "FROM dblp.authors_publications,dblp.publication,dblp.journal " \
                         "where authors_publications.author_id = %s and authors_publications.publ_id = publication.id " \
                         "and publication.journal_id = journal.id " \
                         "group by journal.id"
@@ -72,29 +66,29 @@ def welcome():
 def get_author_for(author_id):
     total_FoRs = Counter()
 
-    dblpCursor.execute(searchAuthorsJournals, (author_id,))
-    journals = dblpCursor.fetchall()
+    dbCursor.execute(searchAuthorsJournals, (author_id,))
+    journals = dbCursor.fetchall()
 
-    dblpCursor.execute(searchAuthorsConferences, (author_id,))
-    conferences = dblpCursor.fetchall()
+    dbCursor.execute(searchAuthorsConferences, (author_id,))
+    conferences = dbCursor.fetchall()
 
     for row in journals:
-        FoRCursor.execute(searchJournalFoR, ('%'.join(row['name'].replace('.', '').split()) + '%',))
-        if FoRCursor.rowcount > 0:
-            result = FoRCursor.fetchone()
+        dbCursor.execute(searchJournalFoR, ('%'.join(row['name'].replace('.', '').split()) + '%',))
+        if dbCursor.rowcount > 0:
+            result = dbCursor.fetchone()
             total_FoRs[result['FoR']] += row['No. of publications']
 
     acronyms_count = Counter([conf['key'].split('/')[1] for conf in conferences])
     acronyms_string = '\'' + '\',\''.join(list(acronyms_count)) + '\''
-    FoRCursor.execute(searchConferenceFoR.replace('%s', acronyms_string))
+    dbCursor.execute(searchConferenceFoR.replace('%s', acronyms_string))
 
-    for row in FoRCursor:
+    for row in dbCursor:
         total_FoRs[row['FoR']] += acronyms_count[row['acronym'].lower()]
 
     FoRs_string = '\'' + '\',\''.join(list(map(str, total_FoRs))) + '\''
-    FoRCursor.execute(searchFoRsById.replace('%s', FoRs_string))
+    dbCursor.execute(searchFoRsById.replace('%s', FoRs_string))
     result = {}
-    for row in FoRCursor:
+    for row in dbCursor:
         result[row['name']] = total_FoRs[row['id']]
 
     return Response(json.dumps(result), mimetype='application/json')
@@ -105,8 +99,8 @@ def get_authors():
     page = request.args.get('page', default=0, type=int)
     offset = pageLimit * page
 
-    dblpCursor.execute(searchAuthors, (offset, pageLimit))
-    result = dblpCursor.fetchall()
+    dbCursor.execute(searchAuthors, (offset, pageLimit))
+    result = dbCursor.fetchall()
 
     return Response(json.dumps(result), mimetype='application/json')
 
@@ -116,24 +110,24 @@ def search_author(author_name):
     page = request.args.get('page', default=0, type=int)
     offset = pageLimit * page
 
-    dblpCursor.execute(searchAuthorByName, (author_name + '%', offset, pageLimit))
-    result = dblpCursor.fetchall()
+    dbCursor.execute(searchAuthorByName, (author_name + '%', offset, pageLimit))
+    result = dbCursor.fetchall()
 
     return Response(json.dumps(result), mimetype='application/json')
 
 
 @app.route('/search/author/<string:author_name>/count')
 def get_search_author_count(author_name):
-    dblpCursor.execute(searchCountAuthorByName, (author_name + '%',))
-    result = dblpCursor.fetchall()
+    dbCursor.execute(searchCountAuthorByName, (author_name + '%',))
+    result = dbCursor.fetchall()
 
     return Response(json.dumps(result), mimetype='application/json')
 
 
 @app.route('/FoRs')
 def get_for():
-    FoRCursor.execute(searchFoRs)
-    result = FoRCursor.fetchall()
+    dbCursor.execute(searchFoRs)
+    result = dbCursor.fetchall()
     return Response(json.dumps(result), mimetype='application/json')
 
 
@@ -142,39 +136,37 @@ def get_publications():
     page = request.args.get('page', default=0, type=int)
     offset = pageLimit * page
 
-    dblpCursor.execute(searchPublications, (offset, pageLimit))
-    result = dblpCursor.fetchall()
+    dbCursor.execute(searchPublications, (offset, pageLimit))
+    result = dbCursor.fetchall()
 
     return Response(json.dumps(result), mimetype='application/json')
 
 
 @app.route('/publication/<int:publ_id>/authors')
 def get_publication_authors(publ_id):
-    dblpCursor.execute(searchPublicationsAuthors, (publ_id,))
-    result = dblpCursor.fetchall()
+    dbCursor.execute(searchPublicationsAuthors, (publ_id,))
+    result = dbCursor.fetchall()
 
     return Response(json.dumps(result), mimetype='application/json')
 
 
 @app.route('/publication/<int:publ_id>/cite')
 def get_cite(publ_id):
-    dblpCursor.execute(searchCite, (publ_id,))
-    result = dblpCursor.fetchall()
+    dbCursor.execute(searchCite, (publ_id,))
+    result = dbCursor.fetchall()
 
     return Response(json.dumps(result), mimetype='application/json')
 
 
 @app.route('/author/<int:author_id>/publications')
 def get_author_publications(author_id):
-    dblpCursor.execute(searchAuthorsPublications, (author_id,))
-    result = dblpCursor.fetchall()
+    dbCursor.execute(searchAuthorsPublications, (author_id,))
+    result = dbCursor.fetchall()
 
     return Response(json.dumps(result), mimetype='application/json')
 
 
 if __name__ == '__main__':
     app.run(debug=True)
-    dblpCursor.close()
-    FoRCursor.close()
-    dblp.close()
-    FoR.close()
+    dbCursor.close()
+    db_con.close()
