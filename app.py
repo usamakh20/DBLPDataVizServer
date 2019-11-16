@@ -1,3 +1,4 @@
+import time
 from flask import Flask, json, Response, request, render_template
 from collections import Counter
 import mysql.connector
@@ -60,10 +61,34 @@ searchAuthorsJournals = "SELECT journal.id,dblp.journal.name,Count(*) as `No. of
                         "and publication.journal_id = journal.id " \
                         "group by journal.id"
 
+# searchAuthorsConferences = "SELECT SUBSTRING_INDEX(SUBSTRING_INDEX(dblp.publication.key,'/',2),'/',-1) as `acronym`," \
+#                            "COUNT(*) as `count` " \
+#                            "FROM dblp.authors_publications,dblp.publication " \
+#                            "WHERE authors_publications.author_id = %s AND " \
+#                            "authors_publications.publ_id = publication.id AND publication.key LIKE 'conf/%' " \
+#                            "GROUP BY SUBSTRING_INDEX(SUBSTRING_INDEX(dblp.publication.key,'/',2),'/',-1)"
+
 searchAuthorsConferences = "SELECT dblp.publication.key,dblp.publication.crossref " \
                            "FROM dblp.authors_publications,dblp.publication " \
                            "where authors_publications.author_id = %s and authors_publications.publ_id = " \
                            "publication.id and publication.key like 'conf/%' "
+
+
+class Middleware():
+    """
+    Simple WSGI middleware
+    """
+    def __init__(self, app):
+        self.app = app
+
+    def __call__(self, environ, start_response):
+        if not db_con.is_connected():
+            db_con.reconnect()
+        return self.app(environ, start_response)
+
+
+# calling our middleware
+app.wsgi_app = Middleware(app.wsgi_app)
 
 
 @app.route('/')
@@ -121,7 +146,7 @@ def graph(FoR_id=None):
     if not FoR_id:
         FoR_id = 999
 
-    dbCursor.execute(searchFoREdges,(FoR_id,x))
+    dbCursor.execute(searchFoREdges, (FoR_id, x))
     edge_data = dbCursor.fetchall()
 
     authorids = []
@@ -130,7 +155,7 @@ def graph(FoR_id=None):
         authorids.append(data['to'])
 
     authorids_string = '\'' + '\',\''.join(map(str, authorids)) + '\''
-    dbCursor.execute(searchFoRNodes.replace('%l', authorids_string),(FoR_id,))
+    dbCursor.execute(searchFoRNodes.replace('%l', authorids_string), (FoR_id,))
     nodes_data = dbCursor.fetchall()
 
     authors = [{"id": 1664843, "label": "\"Johann\" Sebastian Rudolph"},
@@ -147,8 +172,11 @@ def graph(FoR_id=None):
                                                'coauthors': json.dumps(edge_data)})
 
 
+# Most Time taken author_id = 14334, 47415  26 seconds
 @app.route(PREFIX + '/FoR/<author_id>')
 def get_author_for(author_id):
+    start_time = time.time()
+
     total_FoRs = Counter()
 
     dbCursor.execute(searchAuthorsJournals, (author_id,))
@@ -164,6 +192,7 @@ def get_author_for(author_id):
             total_FoRs[result['FoR']] += row['No. of publications']
 
     acronyms_count = Counter([conf['key'].split('/')[1] for conf in conferences])
+    # acronyms_count = Counter(dict((acronym,count) for acronym,count in conferences))
     acronyms_string = '\'' + '\',\''.join(list(acronyms_count)) + '\''
     dbCursor.execute(searchConferenceFoR.replace('%s', acronyms_string))
 
@@ -175,6 +204,8 @@ def get_author_for(author_id):
     result = {}
     for row in dbCursor:
         result[row['name']] = total_FoRs[row['id']]
+
+    result["Time Taken"] = round(time.time() - start_time, 3)
 
     return Response(json.dumps(result), mimetype='application/json')
 
