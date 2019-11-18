@@ -43,15 +43,15 @@
         </dd>
         <dt class="col-sm-3">Focus of Research</dt>
         <dd class="col-sm-9">
-          {{data.FoR}}
+          {{data.FoR[0]}}
         </dd>
         <dt class="col-sm-3">No. of publications in FoR</dt>
         <dd class="col-sm-9">
-          7
+          {{data.FoR[1]}}
         </dd>
         <dt class="col-sm-3">Total no. of publications</dt>
         <dd class="col-sm-9">
-          20
+          {{ data.publications | length }}
         </dd>
       </dl>
 

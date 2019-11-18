@@ -5,72 +5,91 @@ import mysql.connector
 
 app = Flask(__name__)
 
+# import logging
+# log = logging.getLogger('werkzeug')
+# log.setLevel(logging.ERROR)
+
 db_con = mysql.connector.connect(
     host='34.93.138.139',
     user='root',
-    passwd='4Jm519N0IgsEvJ2O'
+    passwd='4Jm519N0IgsEvJ2O',
+    database='usama_dblp'
 )
+
+# db_con = mysql.connector.connect(
+#     host='localhost',
+#     user='root',
+#     passwd='12345678',
+#     database='dblp'
+# )
 
 PREFIX = "/api"
 pageLimit = 100
 
 dbCursor = db_con.cursor(buffered=True, dictionary=True)
 
-searchFoRNodes = "SELECT id,authors_name as `label` FROM dblp.for_authors WHERE for_id=%s AND id in (%l)"
+searchFoRNodes = "SELECT id,name as `label` FROM author WHERE FoR_id=%s AND id in (%l)"
 
-searchFoREdges = "SELECT author1 as `from`, author2 as `to`, CONVERT(publications , CHAR(50)) as `label` " \
-                 "FROM coauthors.graph_data " \
-                 "WHERE for_id=%s AND publications>=%s LIMIT 100"
+searchFoREdges = "SELECT author_id_1 as `from`, author_id_2 as `to`, CONVERT(publications , CHAR(50)) as `label` " \
+                 "FROM coauthors_by_FoR " \
+                 "WHERE FoR_id=%s AND publications>=%s LIMIT %s,%s"
 
-searchPublications = "SELECT * FROM dblp.publication LIMIT %s,%s"
+searchFoREdgesCount = "SELECT COUNT(*) as `count` " \
+                      "FROM coauthors_by_FoR " \
+                      "WHERE FoR_id=%s AND publications>=%s"
 
-searchFoRs = "SELECT * FROM `FoR`.`FoR`"
+searchCountPublications = "SELECT count(*) as `count` FROM publication"
 
-searchFoRsById = "SELECT * FROM `FoR`.`FoR` where id in (%s)"
+searchPublications = "SELECT * FROM publication LIMIT %s,%s"
 
-searchAuthors = "SELECT for_authors.id, authors_name as `name`,`FoR`.name as `FoR` " \
-                "FROM dblp.for_authors,`FoR`.`FoR` " \
-                "WHERE for_id=`FoR`.id ORDER BY id LIMIT %s,%s "
+searchFoRs = "SELECT * FROM focus_of_research"
 
-searchAuthorsById = "SELECT * FROM dblp.authors where id = %s"
+searchFoRsById = "SELECT * FROM focus_of_research where id in (%s)"
 
-searchAuthorByName = "SELECT for_authors.id, authors_name as `name`,`FoR`.name as `FoR` " \
-                     "FROM dblp.for_authors,`FoR`.`FoR`" \
-                     "WHERE for_id =`FoR`.id AND authors_name LIKE %s LIMIT %s,%s"
+searchCountAuthors = "SELECT count(*) as `count` FROM author"
 
-searchCountAuthorByName = "SELECT count(*) as count FROM dblp.authors WHERE `name` LIKE %s"
+searchAuthors = "SELECT author.id, author.name,focus_of_research.name as `FoR` " \
+                "FROM author LEFT JOIN focus_of_research " \
+                "ON FoR_id=focus_of_research.id ORDER BY author.id LIMIT %s,%s"
 
-searchCite = "SELECT Count(*) as citations FROM dblp.cite WHERE publ_id = %s"
+searchAuthorByName = "SELECT author.id, author.name,focus_of_research.name as `FoR` " \
+                     "FROM author LEFT JOIN focus_of_research " \
+                     "ON FoR_id=focus_of_research.id " \
+                     "WHERE author.name LIKE %s LIMIT %s,%s"
 
-searchJournalFoR = "SELECT * FROM `FoR`.journal where title like %s order by length(title)"
+searchCountAuthorByName = "SELECT count(*) as `count` FROM author WHERE `name` LIKE %s"
 
-searchConferenceFoR = "SELECT * FROM `FoR`.conference where acronym in (%s)"
+searchCite = "SELECT Count(*) as citations FROM cite WHERE publ_id = %s"
 
-searchPublicationsAuthors = "SELECT for_authors.id,for_authors.authors_name as `name`,`FoR`.`name` as `FoR` " \
-                            "FROM dblp.authors_publications,dblp.for_authors,`FoR`.`FoR` " \
-                            "WHERE publ_id=%s AND author_id=for_authors.id AND `FoR`.id = for_id"
+searchJournalCore = "SELECT * FROM core_journal where title like %s order by length(title)"
+
+searchConferenceCore = "SELECT * FROM core_conference where acronym in (%s)"
+
+searchPublicationsAuthors = "SELECT author.id,author.name,focus_of_research.name as `FoR` " \
+                            "FROM author_publication, author LEFT JOIN focus_of_research " \
+                            "ON FoR_id=focus_of_research.id " \
+                            "WHERE publ_id=%s AND author_id=author.id"
 
 searchAuthorsPublications = "SELECT publication.id,`key`,title,`year`,type " \
-                            "FROM dblp.publication,dblp.authors_publications " \
-                            "WHERE authors_publications.author_id = %s and publication.id = " \
-                            "authors_publications.publ_id "
+                            "FROM publication,author_publication " \
+                            "WHERE author_id = %s and publication.id = publ_id "
 
-searchAuthorsJournals = "SELECT journal.id,dblp.journal.name,Count(*) as `No. of publications` " \
-                        "FROM dblp.authors_publications,dblp.publication,dblp.journal " \
-                        "where authors_publications.author_id = %s and authors_publications.publ_id = publication.id " \
+searchAuthorsJournals = "SELECT journal.id,journal.name,Count(*) as `publications` " \
+                        "FROM author_publication,publication,journal " \
+                        "where author_id = %s and publ_id = publication.id " \
                         "and publication.journal_id = journal.id " \
                         "group by journal.id"
 
-# searchAuthorsConferences = "SELECT SUBSTRING_INDEX(SUBSTRING_INDEX(dblp.publication.key,'/',2),'/',-1) as `acronym`," \
+# searchAuthorsConferences = "SELECT SUBSTRING_INDEX(SUBSTRING_INDEX(publication.key,'/',2),'/',-1) as `acronym`," \
 #                            "COUNT(*) as `count` " \
-#                            "FROM dblp.authors_publications,dblp.publication " \
+#                            "FROM authors_publications,publication " \
 #                            "WHERE authors_publications.author_id = %s AND " \
 #                            "authors_publications.publ_id = publication.id AND publication.key LIKE 'conf/%' " \
-#                            "GROUP BY SUBSTRING_INDEX(SUBSTRING_INDEX(dblp.publication.key,'/',2),'/',-1)"
+#                            "GROUP BY SUBSTRING_INDEX(SUBSTRING_INDEX(publication.key,'/',2),'/',-1)"
 
-searchAuthorsConferences = "SELECT dblp.publication.key,dblp.publication.crossref " \
-                           "FROM dblp.authors_publications,dblp.publication " \
-                           "where authors_publications.author_id = %s and authors_publications.publ_id = " \
+searchAuthorsConferences = "SELECT publication.key,publication.crossref " \
+                           "FROM author_publication,publication " \
+                           "where author_id = %s and publ_id = " \
                            "publication.id and publication.key like 'conf/%' "
 
 
@@ -78,6 +97,7 @@ class Middleware():
     """
     Simple WSGI middleware
     """
+
     def __init__(self, app):
         self.app = app
 
@@ -89,6 +109,12 @@ class Middleware():
 
 # calling our middleware
 app.wsgi_app = Middleware(app.wsgi_app)
+
+dbCursor.execute(searchCountPublications)
+publications_count = dbCursor.fetchone()["count"]
+
+dbCursor.execute(searchCountAuthors)
+authors_count = dbCursor.fetchone()["count"]
 
 
 @app.route('/')
@@ -103,7 +129,9 @@ def show_for():
 
 @app.route('/publications')
 def show_publications():
-    return render_template('publications.html', data=get_publications().json)
+    page = request.args.get('page', default=1, type=int) - 1
+    pages = int(publications_count / pageLimit)
+    return render_template('publications.html', data=get_publications(page).json, pages=pages+1, page=page+1)
 
 
 @app.route('/publication/<int:publ_id>')
@@ -121,61 +149,62 @@ def show_publication(publ_id):
 @app.route('/search/author/<string:author_name>')
 @app.route('/authors')
 def show_authors(author_name=''):
+    page = request.args.get('page', default=1, type=int) - 1
+
     if len(author_name) > 0:
-        authors = search_author(author_name).json
+        authors = search_author(author_name,page).json
+        pages = int(get_search_author_count(author_name).json['count']/pageLimit)
     else:
-        authors = get_authors().json
-    return render_template('authors.html', data=authors)
+        authors = get_authors(page).json
+        pages = int(authors_count/pageLimit)
+    return render_template('authors.html', data=authors , pages=pages+1, page=page+1)
 
 
 @app.route('/author/<int:author_id>')
 def show_author(author_id):
     name = request.args.get('name', default='', type=str)
-    FoR = request.args.get('FoR', default='', type=str)
+    FoR = get_author_for(author_id).json
     publications = get_author_publications(author_id).json
 
-    return render_template('author.html', data={'name': name, 'FoR': FoR, 'publications': publications})
+    if not FoR:
+        FoR = ['None',0]
+    else: FoR = FoR[0]
+
+    return render_template('author.html', data={'name': name, 'FoR': FoR ,'publications': publications})
 
 
 @app.route('/graph/')
 @app.route('/graph/<FoR_id>')
-def graph(FoR_id=None):
+def show_graph(FoR_id=801):
     x = request.args.get('x', default=1, type=int)
     name = request.args.get('name', default='', type=str)
+    page = request.args.get('page', default=1, type=int) - 1
 
-    if not FoR_id:
-        FoR_id = 999
+    offset = pageLimit * page
 
-    dbCursor.execute(searchFoREdges, (FoR_id, x))
+    dbCursor.execute(searchFoREdgesCount, (FoR_id, x))
+    pages = int(dbCursor.fetchone()['count']/pageLimit)
+
+    dbCursor.execute(searchFoREdges, (FoR_id, x,offset,pageLimit))
     edge_data = dbCursor.fetchall()
 
-    authorids = []
+    author_ids = []
     for data in edge_data:
-        authorids.append(data['from'])
-        authorids.append(data['to'])
+        author_ids.append(data['from'])
+        author_ids.append(data['to'])
 
-    authorids_string = '\'' + '\',\''.join(map(str, authorids)) + '\''
-    dbCursor.execute(searchFoRNodes.replace('%l', authorids_string), (FoR_id,))
+    author_ids_string = '\'' + '\',\''.join(map(str, author_ids)) + '\''
+    dbCursor.execute(searchFoRNodes.replace('%l', author_ids_string), (FoR_id,))
     nodes_data = dbCursor.fetchall()
 
-    authors = [{"id": 1664843, "label": "\"Johann\" Sebastian Rudolph"},
-               {"id": 2361734, "label": "'Anau Mesui"},
-               {"id": 458683, "label": "'Maseka Lesaoana"},
-               {"id": 893586, "label": "'Niran Adetoro"},
-               {"id": 2361027, "label": "'Yinka Oyerinde"}]
-    coauthors = [{'from': 458683, 'to': 1664843, 'label': '20'},
-                 {'from': 893586, 'to': 2361027, 'label': '4'},
-                 {'from': 2361734, 'to': 893586, 'label': '7'},
-                 {'from': 893586, 'to': 1664843, 'label': '1'}]
-
     return render_template('graph.html', data={'x': x, 'id': FoR_id, 'name': name, 'authors': json.dumps(nodes_data),
-                                               'coauthors': json.dumps(edge_data)})
+                                               'coauthors': json.dumps(edge_data)}, pages=pages+1, page=page+1)
 
 
 # Most Time taken author_id = 14334, 47415  26 seconds
 @app.route(PREFIX + '/FoR/<author_id>')
 def get_author_for(author_id):
-    start_time = time.time()
+    # start_time = time.time()
 
     total_FoRs = Counter()
 
@@ -186,33 +215,37 @@ def get_author_for(author_id):
     conferences = dbCursor.fetchall()
 
     for row in journals:
-        dbCursor.execute(searchJournalFoR, ('%'.join(row['name'].replace('.', '').split()) + '%',))
+        dbCursor.execute(searchJournalCore, ('%'.join(row['name'].replace('.', '').split()) + '%',))
         if dbCursor.rowcount > 0:
             result = dbCursor.fetchone()
-            total_FoRs[result['FoR']] += row['No. of publications']
+            total_FoRs[result['FoR_id']] += row['publications']
 
     acronyms_count = Counter([conf['key'].split('/')[1] for conf in conferences])
     # acronyms_count = Counter(dict((acronym,count) for acronym,count in conferences))
-    acronyms_string = '\'' + '\',\''.join(list(acronyms_count)) + '\''
-    dbCursor.execute(searchConferenceFoR.replace('%s', acronyms_string))
+    if acronyms_count:
+        acronyms_string = '\'' + '\',\''.join(list(acronyms_count)) + '\''
+        dbCursor.execute(searchConferenceCore.replace('%s', acronyms_string))
 
-    for row in dbCursor:
-        total_FoRs[row['FoR']] += acronyms_count[row['acronym'].lower()]
+        for row in dbCursor:
+            total_FoRs[row['FoR_id']] += acronyms_count[row['acronym'].lower()]
 
-    FoRs_string = '\'' + '\',\''.join(list(map(str, total_FoRs))) + '\''
-    dbCursor.execute(searchFoRsById.replace('%s', FoRs_string))
-    result = {}
-    for row in dbCursor:
-        result[row['name']] = total_FoRs[row['id']]
+    result = Counter()
+    if total_FoRs:
+        FoRs_string = '\'' + '\',\''.join(list(map(str, total_FoRs))) + '\''
+        dbCursor.execute(searchFoRsById.replace('%s', FoRs_string))
 
-    result["Time Taken"] = round(time.time() - start_time, 3)
+        for row in dbCursor:
+            result[row['name']] = total_FoRs[row['id']]
 
-    return Response(json.dumps(result), mimetype='application/json')
+    # result["Time Taken"] = round(time.time() - start_time, 3)
+    # print("Time Taken: " + str(round(time.time() - start_time, 3)))
+
+    return Response(json.dumps(result.most_common()), mimetype='application/json')
+    # return Response(json.dumps(total_FoRs.most_common()), mimetype='application/json')
 
 
-@app.route(PREFIX + '/authors')
-def get_authors():
-    page = request.args.get('page', default=0, type=int)
+@app.route(PREFIX + '/authors/<int:page>')
+def get_authors(page=0):
     offset = pageLimit * page
 
     dbCursor.execute(searchAuthors, (offset, pageLimit))
@@ -221,9 +254,16 @@ def get_authors():
     return Response(json.dumps(result), mimetype='application/json')
 
 
-@app.route(PREFIX + '/search/author/<string:author_name>')
-def search_author(author_name):
-    page = request.args.get('page', default=0, type=int)
+@app.route(PREFIX + '/authors/count')
+def get_authors_count():
+    dbCursor.execute(searchCountAuthors)
+    result = dbCursor.fetchone()
+
+    return Response(json.dumps(result), mimetype='application/json')
+
+
+@app.route(PREFIX + '/search/author/<string:author_name>/<int:page>')
+def search_author(author_name,page=0):
     offset = pageLimit * page
 
     dbCursor.execute(searchAuthorByName, (author_name + '%', offset, pageLimit))
@@ -235,7 +275,7 @@ def search_author(author_name):
 @app.route(PREFIX + '/search/author/<string:author_name>/count')
 def get_search_author_count(author_name):
     dbCursor.execute(searchCountAuthorByName, (author_name + '%',))
-    result = dbCursor.fetchall()
+    result = dbCursor.fetchone()
 
     return Response(json.dumps(result), mimetype='application/json')
 
@@ -247,9 +287,16 @@ def get_for():
     return Response(json.dumps(result), mimetype='application/json')
 
 
-@app.route(PREFIX + '/publications')
-def get_publications():
-    page = request.args.get('page', default=0, type=int)
+@app.route(PREFIX + '/publications/count')
+def get_publications_count():
+    dbCursor.execute(searchCountPublications)
+    result = dbCursor.fetchone()
+
+    return Response(json.dumps(result), mimetype='application/json')
+
+
+@app.route(PREFIX + '/publications/<int:page>')
+def get_publications(page=0):
     offset = pageLimit * page
 
     dbCursor.execute(searchPublications, (offset, pageLimit))

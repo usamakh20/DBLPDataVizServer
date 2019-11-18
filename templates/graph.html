@@ -7,7 +7,7 @@
 
     <script
             type="text/javascript"
-            src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+            src="{{ url_for('static', filename='vis-network.min.js') }}"></script>
     <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
 
@@ -28,7 +28,19 @@
     </a>
 </nav>
 <div class="container-fluid">
-    <div id="mynetwork" style="height: 90vh"></div>
+    <div id="mynetwork" style="height: 80vh"></div>
+    <nav aria-label="Page navigation example" class="mt-2">
+        <ul class="pagination justify-content-center">
+            <li class="page-item {% if page==1 %} disabled {% endif %}">
+                <a class="page-link" href="{{request.path+'?x='+(data.x|string)+'&name='+data.name+'&page='+(page - 1)|string}}" {% if page==1 %} tabindex="-1" aria-disabled="true" {% endif %}
+                >Previous</a>
+            </li>
+            <li class="page-item"><a class="page-link" href="#">{{page|string +' / '+ pages|string}}</a></li>
+            <li class="page-item {% if page==pages %} disabled {% endif %}">
+                <a class="page-link" href="{{request.path+'?x='+(data.x|string)+'&name='+data.name+'&page='+(page + 1)|string}}" {% if page==pages %} tabindex="-1" aria-disabled="true" {% endif %}>Next</a>
+            </li>
+        </ul>
+    </nav>
 </div>
 <script type="text/javascript">
     // create an array with nodes
@@ -43,8 +55,8 @@
         nodes: nodes,
         edges: edges
     };
-    var options = {edges: {
-            font: {align: 'top'},
+    var options = {
+        edges: {font: {align: 'top'},
             shadow: true,
             smooth: true
         }};
