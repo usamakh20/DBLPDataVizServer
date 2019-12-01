@@ -18,19 +18,19 @@ Publication_clf = load('static/Decision_Publication.joblib')
 
 app = Flask(__name__)
 
-# db_con = mysql.connector.connect(
-#     host='34.93.138.139',
-#     user='root',
-#     passwd='4Jm519N0IgsEvJ2O',
-#     database='usama_dblp'
-# )
-
 db_con = mysql.connector.connect(
-    host='localhost',
+    host='34.93.138.139',
     user='root',
-    passwd='12345678',
-    database='dblp'
+    passwd='4Jm519N0IgsEvJ2O',
+    database='usama_dblp'
 )
+
+# db_con = mysql.connector.connect(
+#     host='localhost',
+#     user='root',
+#     passwd='12345678',
+#     database='dblp'
+# )
 
 PREFIX = "/api"
 pageLimit = 100
