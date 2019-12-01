@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8" />
+    <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1, shrink-to-fit=no"
+    />
+    <link rel="shortcut icon" href="https://dblp.org/img/dblp.icon.192x192.png">
+    <link
+            rel="stylesheet"
+            href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+            integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T"
+            crossorigin="anonymous"
+    />
+    <title>DS Tools & Tech.</title>
+</head>
+<body>
+<!-- Image and text -->
+<nav class="navbar navbar-dark bg-dark">
+    <a class="navbar-brand" href="/">
+        <img
+                src="https://dblp.org/img/dblp.icon.192x192.png"
+                width="30"
+                height="30"
+                class="d-inline-block align-top"
+                alt=""
+        />
+        Predict
+    </a>
+</nav>
+<div class="container mt-2">
+    <div class="card text-white bg-primary mb-3">
+        <div class="card-header">
+            <p class="h3">Predict Papers in FoR</p>
+        </div>
+        <div class="card-body">
+            <form class="form-group form-row">
+                <div class="col">
+                    <select class="custom-select form-control" id="select_FoR_id" required>
+                        <option hidden disabled selected value>Select FoR</option>
+                        {% for item in FoR %}
+                            <option value="{{item.id}}">{{item.name}}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col">
+                    <select class="col custom-select form-control" id="select_FoR_year" required>
+                        <option hidden disabled selected value>Select Year</option>
+                        {% for num in range(1950,2051) %}
+                            <option value="{{ num }}">{{ num }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button class="col-md-2 btn btn-outline-warning my-3 mx-1 m-md-auto" type="button" onclick="getPrediction(0)">
+                    Predict
+                </button>
+            </form>
+            <hr class="bg-light my-4 d-none" id="divider_FoR" />
+            <dl class="row d-none" id="result_FoR">
+                <div class="col-6 row">
+                    <dt class="col-sm-7">Classifier</dt>
+                    <dd class="col-sm-5">
+                        Naive Bayes
+                    </dd>
+                    <dt class="col-sm-7">Prediction</dt>
+                    <dd class="col-sm-5" id="NB_FoR_prediction"></dd>
+                    <dt class="col-sm-7">Confidence</dt>
+                    <dd class="col-sm-5" id="NB_FoR_score"></dd>
+                </div>
+                <div class="col-6 row">
+                    <dt class="col-sm-7">Classifier</dt>
+                    <dd class="col-sm-5">
+                        Decision Tree
+                    </dd>
+                    <dt class="col-sm-7">Prediction</dt>
+                    <dd class="col-sm-5" id="DT_FoR_prediction"></dd>
+                    <dt class="col-sm-7">Confidence</dt>
+                    <dd class="col-sm-5" id="DT_FoR_score"></dd>
+                </div>
+            </dl>
+        </div>
+    </div>
+    <div class="card text-white bg-secondary mb-3">'
+        <div class="card-header">
+            <p class="h4">Papers in Journal / Conference</p>
+        </div>
+        <div class="card-body">
+            <form class="form-group form-row">
+                <div class="col">
+                    <select class="custom-select form-control" id="select_type_id" required onchange="changeOptions(this)">
+                        <option hidden disabled selected value>Select Type</option>
+                        <option value="0">Journal</option>
+                        <option value="1">Conference</option>
+                    </select>
+                </div>
+                <div class="col">
+                    <select class="custom-select form-control" id="target">
+                        <option hidden disabled selected value>Select</option>
+                    </select>
+                </div>
+                <div class="col">
+                    <select class="col custom-select form-control" id="select_type_year" required>
+                        <option hidden disabled selected value>Select Year</option>
+                        {% for num in range(1950,2051) %}
+                            <option value="{{ num }}">{{ num }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button class="col-md-2 btn btn-outline-warning my-3 mx-1 m-md-auto" type="button" onclick="getPrediction(document.getElementById('select_type_id').selectedIndex)">
+                    Predict
+                </button>
+            </form>
+            <hr class="bg-light my-4 d-none" id="divider_type" />
+            <dl class="row d-none" id="result_type" >
+                <div class="col-6 row">
+                    <dt class="col-sm-7">Classifier</dt>
+                    <dd class="col-sm-5">
+                        Naive Bayes
+                    </dd>
+                    <dt class="col-sm-7">Prediction</dt>
+                    <dd class="col-sm-5" id="NB_type_prediction"></dd>
+                    <dt class="col-sm-7">Confidence</dt>
+                    <dd class="col-sm-5" id="NB_type_score"></dd>
+                </div>
+                <div class="col-6 row">
+                    <dt class="col-sm-7">Classifier</dt>
+                    <dd class="col-sm-5">
+                        Decision Tree
+                    </dd>
+                    <dt class="col-sm-7">Prediction</dt>
+                    <dd class="col-sm-5" id="DT_type_prediction"></dd>
+                    <dt class="col-sm-7">Confidence</dt>
+                    <dd class="col-sm-5" id="DT_type_score"></dd>
+                </div>
+            </dl>
+        </div>
+    </div>
+    <div class="card text-white bg-info mb-3">
+        <div class="card-header">
+            <p class="h3">Predict Papers in Year</p>
+        </div>
+        <div class="card-body">
+            <form class="form-group form-row">
+                <div class="col">
+                    <select class="col custom-select form-control" id="select_publication_year" required>
+                        <option hidden disabled selected value>Select Year</option>
+                        {% for num in range(1950,2051) %}
+                            <option value="{{ num }}">{{ num }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button class="col-md-2 btn btn-outline-warning my-3 mx-1 m-md-auto" type="button" onclick="getPrediction(3)">
+                    Predict
+                </button>
+            </form>
+            <hr class="bg-light my-4 d-none" id="divider_publication" />
+            <dl class="row d-none" id="result_publication">
+                <div class="col-6 row">
+                    <dt class="col-sm-7">Classifier</dt>
+                    <dd class="col-sm-5">
+                        Naive Bayes
+                    </dd>
+                    <dt class="col-sm-7">Prediction</dt>
+                    <dd class="col-sm-5" id="NB_publication_prediction"></dd>
+                    <dt class="col-sm-7">Confidence</dt>
+                    <dd class="col-sm-5" id="NB_publication_score"></dd>
+                </div>
+                <div class="col-6 row">
+                    <dt class="col-sm-7">Classifier</dt>
+                    <dd class="col-sm-5">
+                        Decision Tree
+                    </dd>
+                    <dt class="col-sm-7">Prediction</dt>
+                    <dd class="col-sm-5" id="DT_publication_prediction"></dd>
+                    <dt class="col-sm-7">Confidence</dt>
+                    <dd class="col-sm-5" id="DT_publication_score"></dd>
+                </div>
+            </dl>
+        </div>
+    </div>
+</div>
+<script type="text/javascript">
+    let journals = {{ journals|safe }};
+    let conferences = {{ conferences|safe }};
+    function searchAuthor(obj) {
+        window.location.assign('/search/author/'+document.getElementById('search').value);
+    }
+    function changeOptions(selectObject) {
+        const target = document.getElementById('target');
+        {#for (let i=1; i<target.length; i++)#}
+        {#    target.options[i] = null;#}
+        target.options.length = 0;
+        target.innerHTML='<option hidden disabled selected value>Select</option>';
+
+        var data;
+        if (selectObject.selectedIndex === 1)
+            data = journals;
+        else data = conferences;
+
+        for (let i=2;i<data.length;i++){
+            const option = document.createElement("option");
+            option.value = data[i].id;
+            option.text = data[i].name;
+            target.add(option);
+        }
+        target[0].text = selectObject.selectedIndex === 1 ? 'Select Journal':'Select Conference'
+    }
+    function getPrediction(clf_index){
+        var id;
+        var year;
+        if (clf_index === 0){
+            id = document.getElementById('select_FoR_id').value;
+            year = document.getElementById('select_FoR_year').value;
+        }
+        else if (clf_index === 1 || clf_index === 2){
+            id = document.getElementById('target').value;
+            year = document.getElementById('select_type_year').value;
+        }
+        else year = document.getElementById('select_publication_year').value;
+
+        const xhttp = new XMLHttpRequest();
+        xhttp.open("GET", "{{request.host_url}}api/predict/"+clf_index+"?id="+id+"&year="+year, false);
+        xhttp.send();
+        const prediction = JSON.parse(xhttp.responseText);
+
+        var type = "publication";
+        if (clf_index === 0) type = "FoR";
+        else if (clf_index === 1 || clf_index === 2) type="type";
+
+        document.getElementById('divider_'+type).classList.remove('d-none');
+        document.getElementById('result_'+type).classList.remove('d-none');
+        document.getElementById('NB_'+type+'_prediction').textContent = prediction['NB'][0];
+        document.getElementById('NB_'+type+'_score').textContent = prediction['NB'][1];
+        document.getElementById('DT_'+type+'_prediction').textContent = prediction['DT'][0];
+        document.getElementById('DT_'+type+'_score').textContent = prediction['DT'][1];
+    }
+</script>
+<!-- Optional JavaScript -->
+<!-- jQuery first, then Popper.js, then Bootstrap JS -->
+<script
+        src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+        integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+        crossorigin="anonymous"
+></script>
+<script
+        src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"
+        integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1"
+        crossorigin="anonymous"
+></script>
+<script
+        src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"
+        integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
+        crossorigin="anonymous"
+></script>
+</body>
+</html>

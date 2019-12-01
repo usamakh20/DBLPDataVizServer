@@ -2,31 +2,44 @@ import time
 from flask import Flask, json, Response, request, render_template
 from collections import Counter
 import mysql.connector
+from joblib import load
+
+FoR_gnb = load('static/Naive_FoR.joblib')
+FoR_clf = load('static/Decision_FoR.joblib')
+
+Journal_gnb = load('static/Naive_Journal.joblib')
+Journal_clf = load('static/Decision_Journal.joblib')
+
+Conference_gnb = load('static/Naive_Conference.joblib')
+Conference_clf = load('static/Decision_Conference.joblib')
+
+Publication_gnb = load('static/Naive_Publication.joblib')
+Publication_clf = load('static/Decision_Publication.joblib')
 
 app = Flask(__name__)
 
-# import logging
-# log = logging.getLogger('werkzeug')
-# log.setLevel(logging.ERROR)
+# db_con = mysql.connector.connect(
+#     host='34.93.138.139',
+#     user='root',
+#     passwd='4Jm519N0IgsEvJ2O',
+#     database='usama_dblp'
+# )
 
 db_con = mysql.connector.connect(
-    host='34.93.138.139',
+    host='localhost',
     user='root',
-    passwd='4Jm519N0IgsEvJ2O',
-    database='usama_dblp'
+    passwd='12345678',
+    database='dblp'
 )
-
-# db_con = mysql.connector.connect(
-#     host='localhost',
-#     user='root',
-#     passwd='12345678',
-#     database='dblp'
-# )
 
 PREFIX = "/api"
 pageLimit = 100
 
 dbCursor = db_con.cursor(buffered=True, dictionary=True)
+
+searchJournal = "SELECT id,name FROM journal"
+
+searchConference = "SELECT id,acronym as `name` FROM conference"
 
 searchFoRNodes = "SELECT id,name as `label` FROM author WHERE FoR_id=%s AND id in (%l)"
 
@@ -122,6 +135,15 @@ def index():
     return render_template('index.html')
 
 
+@app.route('/predict')
+def show_predict():
+    dbCursor.execute(searchJournal)
+    journals = dbCursor.fetchall()
+    dbCursor.execute(searchConference)
+    conferences = dbCursor.fetchall()
+    return render_template('predict.html', FoR=get_for().json, journals=journals, conferences=conferences)
+
+
 @app.route('/FoRs')
 def show_for():
     return render_template('for.html', data=get_for().json)
@@ -131,7 +153,7 @@ def show_for():
 def show_publications():
     page = request.args.get('page', default=1, type=int) - 1
     pages = int(publications_count / pageLimit)
-    return render_template('publications.html', data=get_publications(page).json, pages=pages+1, page=page+1)
+    return render_template('publications.html', data=get_publications(page).json, pages=pages + 1, page=page + 1)
 
 
 @app.route('/publication/<int:publ_id>')
@@ -152,12 +174,12 @@ def show_authors(author_name=''):
     page = request.args.get('page', default=1, type=int) - 1
 
     if len(author_name) > 0:
-        authors = search_author(author_name,page).json
-        pages = int(get_search_author_count(author_name).json['count']/pageLimit)
+        authors = search_author(author_name, page).json
+        pages = int(get_search_author_count(author_name).json['count'] / pageLimit)
     else:
         authors = get_authors(page).json
-        pages = int(authors_count/pageLimit)
-    return render_template('authors.html', data=authors , pages=pages+1, page=page+1)
+        pages = int(authors_count / pageLimit)
+    return render_template('authors.html', data=authors, pages=pages + 1, page=page + 1)
 
 
 @app.route('/author/<int:author_id>')
@@ -167,10 +189,11 @@ def show_author(author_id):
     publications = get_author_publications(author_id).json
 
     if not FoR:
-        FoR = ['None',0]
-    else: FoR = FoR[0]
+        FoR = ['None', 0]
+    else:
+        FoR = FoR[0]
 
-    return render_template('author.html', data={'name': name, 'FoR': FoR ,'publications': publications})
+    return render_template('author.html', data={'name': name, 'FoR': FoR, 'publications': publications})
 
 
 @app.route('/graph/')
@@ -183,9 +206,9 @@ def show_graph(FoR_id=801):
     offset = pageLimit * page
 
     dbCursor.execute(searchFoREdgesCount, (FoR_id, x))
-    pages = int(dbCursor.fetchone()['count']/pageLimit)
+    pages = int(dbCursor.fetchone()['count'] / pageLimit)
 
-    dbCursor.execute(searchFoREdges, (FoR_id, x,offset,pageLimit))
+    dbCursor.execute(searchFoREdges, (FoR_id, x, offset, pageLimit))
     edge_data = dbCursor.fetchall()
 
     author_ids = []
@@ -198,7 +221,34 @@ def show_graph(FoR_id=801):
     nodes_data = dbCursor.fetchall()
 
     return render_template('graph.html', data={'x': x, 'id': FoR_id, 'name': name, 'authors': json.dumps(nodes_data),
-                                               'coauthors': json.dumps(edge_data)}, pages=pages+1, page=page+1)
+                                               'coauthors': json.dumps(edge_data)}, pages=pages + 1, page=page + 1)
+
+
+@app.route(PREFIX + '/predict/<int:clf_id>')
+def get_prediction(clf_id):
+    id = request.args.get('id', default=8, type=int)
+    year = request.args.get('year', default=1980, type=int)
+    prediction = {}
+    if clf_id == 0:
+        prediction['NB'] = [FoR_gnb.predict([[id, year]])[0], FoR_gnb.predict_proba([[id, year]]).max()]
+        prediction['DT'] = [FoR_clf.predict([[id, year]])[0], FoR_clf.predict_proba([[id, year]]).max()]
+
+    elif clf_id == 1:
+        prediction['NB'] = [Journal_gnb.predict([[id, year]])[0], Journal_gnb.predict_proba([[id, year]]).max()]
+        prediction['DT'] = [Journal_clf.predict([[id, year]])[0], Journal_clf.predict_proba([[id, year]]).max()]
+
+    elif clf_id == 2:
+        prediction['NB'] = [Conference_gnb.predict([[id, year]])[0], Conference_gnb.predict_proba([[id, year]]).max()]
+        prediction['DT'] = [Conference_clf.predict([[id, year]])[0], Conference_clf.predict_proba([[id, year]]).max()]
+
+    else:
+        prediction['NB'] = [Publication_gnb.predict([[year]])[0], Publication_gnb.predict_proba([[year]]).max()]
+        prediction['DT'] = [Publication_clf.predict([[year]])[0], Publication_clf.predict_proba([[year]]).max()]
+
+    prediction['NB'][1] = str(int(prediction['NB'][1] * 100)) + '%'
+    prediction['DT'][1] = str(int(prediction['DT'][1] * 100)) + '%'
+
+    return Response(json.dumps(prediction), mimetype='application/json')
 
 
 # Most Time taken author_id = 14334, 47415  26 seconds
@@ -263,7 +313,7 @@ def get_authors_count():
 
 
 @app.route(PREFIX + '/search/author/<string:author_name>/<int:page>')
-def search_author(author_name,page=0):
+def search_author(author_name, page=0):
     offset = pageLimit * page
 
     dbCursor.execute(searchAuthorByName, (author_name + '%', offset, pageLimit))
