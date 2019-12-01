@@ -80,6 +80,7 @@
                     <dd class="col-sm-5" id="DT_FoR_score"></dd>
                 </div>
             </dl>
+            <p class="text-center" id="actual_FoR"></p>
         </div>
     </div>
     <div class="card text-white bg-secondary mb-3">'
@@ -135,6 +136,7 @@
                     <dd class="col-sm-5" id="DT_type_score"></dd>
                 </div>
             </dl>
+        <p class="text-center" id="actual_type"></p>
         </div>
     </div>
     <div class="card text-white bg-info mb-3">
@@ -178,6 +180,7 @@
                     <dd class="col-sm-5" id="DT_publication_score"></dd>
                 </div>
             </dl>
+        <p class="text-center" id="actual_publication"></p>
         </div>
     </div>
 </div>
@@ -224,6 +227,7 @@
         xhttp.open("GET", "{{request.host_url}}api/predict/"+clf_index+"?id="+id+"&year="+year, false);
         xhttp.send();
         const prediction = JSON.parse(xhttp.responseText);
+        console.log(prediction);
 
         var type = "publication";
         if (clf_index === 0) type = "FoR";
@@ -235,6 +239,7 @@
         document.getElementById('NB_'+type+'_score').textContent = prediction['NB'][1];
         document.getElementById('DT_'+type+'_prediction').textContent = prediction['DT'][0];
         document.getElementById('DT_'+type+'_score').textContent = prediction['DT'][1];
+        document.getElementById('actual_'+type).innerHTML = '<b>Actual Value :&nbsp;</b>&nbsp;'+prediction['AC'];
     }
 </script>
 <!-- Optional JavaScript -->

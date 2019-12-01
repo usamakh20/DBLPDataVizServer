@@ -3,6 +3,7 @@ from flask import Flask, json, Response, request, render_template
 from collections import Counter
 import mysql.connector
 from joblib import load
+import pandas as pd
 
 FoR_gnb = load('static/Naive_FoR.joblib')
 FoR_clf = load('static/Decision_FoR.joblib')
@@ -16,21 +17,26 @@ Conference_clf = load('static/Decision_Conference.joblib')
 Publication_gnb = load('static/Naive_Publication.joblib')
 Publication_clf = load('static/Decision_Publication.joblib')
 
+df_FoR = pd.read_csv("static/FoR.csv")
+df_journal = pd.read_csv("static/Journal.csv")
+df_conference = pd.read_csv("static/Conference.csv")
+df_publication = pd.read_csv("static/Publication.csv")
+
 app = Flask(__name__)
 
-db_con = mysql.connector.connect(
-    host='34.93.138.139',
-    user='root',
-    passwd='4Jm519N0IgsEvJ2O',
-    database='usama_dblp'
-)
-
 # db_con = mysql.connector.connect(
-#     host='localhost',
+#     host='34.93.138.139',
 #     user='root',
-#     passwd='12345678',
-#     database='dblp'
+#     passwd='4Jm519N0IgsEvJ2O',
+#     database='usama_dblp'
 # )
+
+db_con = mysql.connector.connect(
+    host='localhost',
+    user='root',
+    passwd='12345678',
+    database='dblp'
+)
 
 PREFIX = "/api"
 pageLimit = 100
@@ -85,7 +91,8 @@ searchPublicationsAuthors = "SELECT author.id,author.name,focus_of_research.name
 
 searchAuthorsPublications = "SELECT publication.id,`key`,title,`year`,type " \
                             "FROM publication,author_publication " \
-                            "WHERE author_id = %s and publication.id = publ_id "
+                            "WHERE author_id = %s and publication.id = publ_id " \
+                            "ORDER BY year"
 
 searchAuthorsJournals = "SELECT journal.id,journal.name,Count(*) as `publications` " \
                         "FROM author_publication,publication,journal " \
@@ -230,21 +237,26 @@ def get_prediction(clf_id):
     year = request.args.get('year', default=1980, type=int)
     prediction = {}
     if clf_id == 0:
+        actual_row = df_FoR.loc[(df_FoR['id'] == id) & (df_FoR['year'] == year)]
         prediction['NB'] = [FoR_gnb.predict([[id, year]])[0], FoR_gnb.predict_proba([[id, year]]).max()]
         prediction['DT'] = [FoR_clf.predict([[id, year]])[0], FoR_clf.predict_proba([[id, year]]).max()]
 
     elif clf_id == 1:
+        actual_row = df_journal.loc[(df_journal['id'] == id) & (df_journal['year'] == year)]
         prediction['NB'] = [Journal_gnb.predict([[id, year]])[0], Journal_gnb.predict_proba([[id, year]]).max()]
         prediction['DT'] = [Journal_clf.predict([[id, year]])[0], Journal_clf.predict_proba([[id, year]]).max()]
 
     elif clf_id == 2:
+        actual_row = df_conference.loc[(df_conference['id'] == id) & (df_conference['year'] == year)]
         prediction['NB'] = [Conference_gnb.predict([[id, year]])[0], Conference_gnb.predict_proba([[id, year]]).max()]
         prediction['DT'] = [Conference_clf.predict([[id, year]])[0], Conference_clf.predict_proba([[id, year]]).max()]
 
     else:
+        actual_row = df_publication.loc[df_publication['year'] == year]
         prediction['NB'] = [Publication_gnb.predict([[year]])[0], Publication_gnb.predict_proba([[year]]).max()]
         prediction['DT'] = [Publication_clf.predict([[year]])[0], Publication_clf.predict_proba([[year]]).max()]
 
+    prediction['AC'] = actual_row.iloc[0]['label'] if not actual_row.empty else "None"
     prediction['NB'][1] = str(int(prediction['NB'][1] * 100)) + '%'
     prediction['DT'][1] = str(int(prediction['DT'][1] * 100)) + '%'
 
