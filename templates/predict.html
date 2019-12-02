@@ -212,26 +212,26 @@
     }
     function getPrediction(clf_index){
         var id;
-        var year;
-        if (clf_index === 0){
+        var year = document.getElementById('select_publication_year').value;
+        var type = "publication";
+		if (clf_index === 0){
             id = document.getElementById('select_FoR_id').value;
             year = document.getElementById('select_FoR_year').value;
+			type = "FoR";
         }
         else if (clf_index === 1 || clf_index === 2){
             id = document.getElementById('target').value;
             year = document.getElementById('select_type_year').value;
+			type="type";
         }
-        else year = document.getElementById('select_publication_year').value;
+		document.getElementById('divider_'+type).classList.add('d-none');
+        document.getElementById('result_'+type).classList.add('d-none');
 
         const xhttp = new XMLHttpRequest();
         xhttp.open("GET", "{{request.host_url}}api/predict/"+clf_index+"?id="+id+"&year="+year, false);
         xhttp.send();
         const prediction = JSON.parse(xhttp.responseText);
         console.log(prediction);
-
-        var type = "publication";
-        if (clf_index === 0) type = "FoR";
-        else if (clf_index === 1 || clf_index === 2) type="type";
 
         document.getElementById('divider_'+type).classList.remove('d-none');
         document.getElementById('result_'+type).classList.remove('d-none');
