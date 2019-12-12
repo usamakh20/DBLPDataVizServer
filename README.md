@@ -1,5 +1,5 @@
 # DBLPDataVizServer
-A REST server in FLASK to query data from dblp in MYSQL
+A REST server in FLASK to query and visualize data from dblp stored in MYSQL.
 
 
 1. If you want to run locally follow steps below.
