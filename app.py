@@ -25,18 +25,11 @@ df_publication = pd.read_csv("static/Publication.csv")
 app = Flask(__name__)
 
 db_con = mysql.connector.connect(
-    host='34.93.138.139',
+    host='localhost',
     user='root',
-    passwd='4Jm519N0IgsEvJ2O',
-    database='usama_dblp'
+    passwd='12345678',
+    database='dblp'
 )
-
-# db_con = mysql.connector.connect(
-#     host='localhost',
-#     user='root',
-#     passwd='12345678',
-#     database='dblp'
-# )
 
 PREFIX = "/api"
 pageLimit = 100
