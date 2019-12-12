@@ -2,8 +2,8 @@
 A REST server in FLASK to query data from dblp in MYSQL
 
 
-1.If you want to run locally follow steps below.
-2.To run flask make sure you have python and flask installed. 
+1. If you want to run locally follow steps below.
+2. To run flask make sure you have python and flask installed. 
 3. This can be ensured by installing all the packages in requirements.txt
 4. Run commands in the above folder $ 'export FLASK_APP=app.py'
 	        	            $ 'python -m flask run'
